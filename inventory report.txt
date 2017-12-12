@@ -1,0 +1,94 @@
+@RequestMapping("/fetchInventoryReportView")
+	public ModelAndView fetchInventoryReportView(HttpServletRequest request,Model model,HttpSession session) {
+		
+		model.addAttribute("pageName", "Inventory Report");
+		
+		EmployeeDetails employeeDetails=(EmployeeDetails)session.getAttribute("employeeDetails");
+		  if(employeeDetails==null)
+		  {
+			  return new ModelAndView("login");
+		  }
+		
+		List<InventoryReportView> inventoryReportViews=inventoryService.fetchInventoryReportView(request.getParameter("request"));
+		model.addAttribute("inventoryReportViews", inventoryReportViews);
+		
+		return new ModelAndView("InventoryReport"); 
+	}
+
+
+
+
+
+
+@Transactional
+	public List<InventoryReportView> fetchInventoryReportView(String supplierId)
+	{
+		List<InventoryReportView> inventoryReportViews=new ArrayList<>();
+		
+		String hql;
+		Query query;
+		/**
+		 * here only show inventory details which payment unpaid till current date
+		 * 
+		 * */
+		if(supplierId==null)
+		{
+			hql="from Inventory where date(inventoryPaymentDatetime) <= date(CURRENT_DATE()) and payStatus=false";
+		}
+		else
+		{
+			hql="from Inventory where date(inventoryPaymentDatetime) <= date(CURRENT_DATE()) and payStatus=false and supplier.supplierId='"+supplierId+"'";
+		}		
+		
+		query=sessionFactory.getCurrentSession().createQuery(hql);
+		List<Inventory> inventoryList=(List<Inventory>)query.list();
+		long srno=1;
+		for(Inventory inventory:inventoryList)
+		{
+			double amountPaid=0;
+			double amountUnPaid=0;
+			hql="from PaymentPaySupplier where inventory.inventoryTransactionId='"+inventory.getInventoryTransactionId()+"' order by paidDate desc";
+			query=sessionFactory.getCurrentSession().createQuery(hql);
+			List<PaymentPaySupplier> paymentPaySupplierList=(List<PaymentPaySupplier>)query.list();
+			
+			if(paymentPaySupplierList.isEmpty())
+			{
+				amountUnPaid=inventory.getTotalAmountTax();
+			}
+			else
+			{
+				amountUnPaid=paymentPaySupplierList.get(0).getDueAmount();
+			}
+			amountPaid=inventory.getTotalAmountTax()-amountUnPaid;
+			
+			String payStatus="";
+			
+			if(amountPaid>=inventory.getTotalAmountTax())
+			{
+				payStatus="Paid";
+			}
+			else if(amountUnPaid<inventory.getTotalAmountTax() && amountUnPaid>0)
+			{
+				payStatus="Partially Paid";
+			}
+			else
+			{
+				payStatus="UnPaid";
+			}
+			
+			inventoryReportViews.add(new InventoryReportView(
+					srno, 
+					inventory.getInventoryTransactionId(), 
+					inventory.getSupplier(), 
+					inventory.getTotalQuantity(), 
+					inventory.getTotalAmount(), 
+					inventory.getTotalAmountTax(), 
+					amountPaid, 
+					amountUnPaid, 
+					inventory.getInventoryPaymentDatetime(), 
+					payStatus
+					));
+		}
+		
+		return inventoryReportViews;
+	}

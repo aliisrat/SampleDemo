@@ -1,0 +1,45 @@
+@RequestMapping("/saveInventory")
+	public ModelAndView saveInventory(Model model,HttpServletRequest request,HttpSession session) throws ParseException {
+		
+		EmployeeDetails employeeDetails=(EmployeeDetails)session.getAttribute("employeeDetails");
+		  if(employeeDetails==null)
+		  {
+			  return new ModelAndView("login");
+		  }
+		
+		
+			System.out.println("inside add inventory");
+			
+			String productIdList=request.getParameter("productIdList");
+			String supplierId=request.getParameter("supplierId");
+			String paymentDate=request.getParameter("paymentDate");
+			inventory.setInventoryAddedDatetime(new Date());
+			
+			supplier.setSupplierId(supplierId);		
+			inventory.setSupplier(supplier);
+			inventory.setInventoryPaymentDatetime(dateFormat.parse(paymentDate));
+			inventoryService.addInventory(inventory,productIdList);
+		
+		
+		return new ModelAndView("redirect:/fetchProductListForInventory"); 
+	}
+	
+	@RequestMapping("/saveOneInventory")
+	public @ResponseBody String saveOneInventory(Model model,HttpServletRequest request) throws ParseException {
+		
+		System.out.println("inside add inventory");
+		
+			String productIdList=request.getParameter("productIdList");
+			String supplierId=request.getParameter("supplierId");
+			String paymentDate=request.getParameter("paymentDate");
+			inventory.setInventoryAddedDatetime(new Date());
+			
+			supplier.setSupplierId(supplierId);		
+			inventory.setSupplier(supplier);
+			inventory.setInventoryPaymentDatetime(dateFormat.parse(paymentDate));
+			
+			inventoryService.addInventory(inventory,productIdList);
+		
+		
+		return "Success"; 
+	}

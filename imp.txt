@@ -1,0 +1,70 @@
+@Transactional
+	public void addInventory(Inventory inventory,String productIdList)
+	{
+		//supplierIdForOrder,productIdForOrder, orderQuantity,supplierMobileNumber
+		SupplierDAOimpl supplierDAOimpl=new SupplierDAOimpl(sessionFactory);
+		ProductDAOImpl productDAOImpl=new ProductDAOImpl(sessionFactory);
+		
+		InventoryTransactionIdGenerator transactionIdGenerator=new InventoryTransactionIdGenerator(sessionFactory);
+		inventory.setInventoryTransactionId(transactionIdGenerator.generateInventoryTransactionId());
+		double totalAmount=0;
+		double totalAmountWithTax=0;
+	    long totalQuantity=0;
+		
+		String[] prdutIdAndRateList = productIdList.split(",");
+		
+		for(int i=0; i<prdutIdAndRateList.length; i++)
+		{
+			String[] prdutIdAndRate=prdutIdAndRateList[i].split("-");
+			
+			SupplierProductList supplierProductList=supplierDAOimpl.fetchSupplierByProductIdAndSupplierId(Long.parseLong(prdutIdAndRate[0]), inventory.getSupplier().getSupplierId());
+			totalAmount=totalAmount+(Long.parseLong(prdutIdAndRate[1])*supplierProductList.getSupplierRate());
+			
+			Product product=new Product();
+			product=productDAOImpl.fetchProductForWebApp(Long.parseLong(prdutIdAndRate[0]));
+			float igst=product.getCategories().getIgst();
+			float cgst=product.getCategories().getCgst();
+			float sgst=product.getCategories().getSgst();
+			totalAmountWithTax=totalAmount+
+								((igst*totalAmount)/100)/*+
+								((cgst*totalAmount)/100)+
+								((sgst*totalAmount)/100)*/;
+			totalQuantity+=Long.parseLong(prdutIdAndRate[1]);
+		}
+
+		inventory.setTotalQuantity(totalQuantity);
+		inventory.setTotalAmount(totalAmount);
+		inventory.setTotalAmountTax(totalAmountWithTax);
+		inventory.setPayStatus(false);
+		sessionFactory.getCurrentSession().save(inventory);
+		
+		prdutIdAndRateList = productIdList.split(",");
+		
+		for(int i=0; i<prdutIdAndRateList.length; i++)
+		{
+			InventoryDetails inventoryDetails=new InventoryDetails();
+			
+			inventoryDetails.setInventory(inventory);
+			
+			String[] prdutIdAndRate=prdutIdAndRateList[i].split("-");
+			Product product=new Product();
+			product=productDAOImpl.fetchProductForWebApp(Long.parseLong(prdutIdAndRate[0]));
+			//product.setProductId(Long.parseLong(prdutIdAndRate[0]));
+			inventoryDetails.setProduct(product);
+			
+			inventoryDetails.setQuantity(Long.parseLong(prdutIdAndRate[1]));
+			
+			SupplierProductList supplierProductList=supplierDAOimpl.fetchSupplierByProductIdAndSupplierId(Long.parseLong(prdutIdAndRate[0]), inventory.getSupplier().getSupplierId());
+			inventoryDetails.setAmount(supplierProductList.getSupplierRate()*Long.parseLong(prdutIdAndRate[1]));
+			
+			inventoryDetails.setRate((float)supplierProductList.getSupplierRate());			
+			
+			
+			product.setCurrentQuantity(product.getCurrentQuantity()+Long.parseLong(prdutIdAndRate[1]));
+			
+			sessionFactory.getCurrentSession().update(product);
+			sessionFactory.getCurrentSession().save(inventoryDetails);
+		}
+
+		
+	}
